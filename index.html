@@ -45,14 +45,18 @@
   .title-mark{ font-size:11px; opacity:0.7; }
   .cash-row{ display:flex; justify-content:space-between; align-items:baseline; margin-top:8px; }
   .cash-label{ font-size:10.5px; color:var(--cream-faint); letter-spacing:0.02em; }
-  .cash-value{ font-family:var(--serif); font-size:30px; color:var(--cream); font-variant-numeric: tabular-nums; line-height:1.1; }
+  .cash-value{ font-family:var(--serif); font-size:32px; color:var(--cream); font-variant-numeric: tabular-nums; line-height:1.05; letter-spacing:-0.01em; }
   .cash-rate{ font-size:12px; color:var(--green); font-variant-numeric: tabular-nums; }
   .cash-rate.neg{ color:var(--red); }
   .topbar-rule{
-    height:1px; margin-top:12px;
-    background: linear-gradient(90deg, transparent, var(--gold-dim) 50%, transparent);
-    opacity:0.5;
+    height:4px; margin-top:12px; position:relative;
   }
+  .topbar-rule::before, .topbar-rule::after{
+    content:''; position:absolute; left:0; right:0; height:1px;
+    background: linear-gradient(90deg, transparent, var(--gold-dim) 50%, transparent);
+  }
+  .topbar-rule::before{ top:0; opacity:0.55; }
+  .topbar-rule::after{ top:3px; opacity:0.25; }
   .next-rival-bar{
     margin-top:10px; padding-top:8px; border-top:1px solid var(--line-soft);
     font-size:10.5px; color:var(--cream-faint); display:flex; justify-content:space-between;
@@ -66,19 +70,23 @@
   .screen.active{ display:block; }
 
   .section-head{
-    font-size:11px; text-transform:none; color:var(--cream-faint);
-    margin: 18px 0 8px; padding-bottom:6px; border-bottom:1px solid var(--line-soft);
+    font-size:10.5px; text-transform:none; color:var(--cream-faint); letter-spacing:0.04em;
+    margin: 20px 0 9px; padding-bottom:7px; border-bottom:1px solid var(--line-soft);
     display:flex; justify-content:space-between; align-items:baseline;
   }
   .section-head:first-child{ margin-top:0; }
 
   .row{
     display:flex; justify-content:space-between; align-items:center;
-    padding:12px 0; border-bottom:1px solid var(--line-soft);
-    gap:10px; transition: background-color 0.15s ease;
+    padding:12px 0 12px 12px; border-bottom:1px solid var(--line-soft);
+    gap:10px; transition: background-color 0.15s ease; position:relative;
   }
   .row:active{ background: rgba(201,162,83,0.04); }
   .row:last-child{ border-bottom:none; }
+  .row.owned::before{
+    content:''; position:absolute; left:0; top:8px; bottom:8px; width:2px;
+    background:var(--gold-dim); border-radius:1px;
+  }
   .row-info{ flex:1; min-width:0; }
   .row-name{ font-size:15px; color:var(--cream); }
   .row-sub{ font-size:12px; color:var(--cream-faint); margin-top:2px; font-variant-numeric: tabular-nums; }
@@ -87,7 +95,8 @@
   button.buy{
     background:transparent; border:1px solid var(--line);
     color:var(--cream); font-family:var(--sans); font-size:13px;
-    padding:8px 14px; border-radius:3px; min-width:84px; text-align:center;
+    padding:8px 14px; border-radius:2px 8px 2px 8px; min-width:84px; text-align:center;
+    transition: border-color 0.15s ease, color 0.15s ease;
   }
   button.buy:active{ background:var(--bg-row); }
   button.buy.afford{ border-color:var(--gold-dim); color:var(--gold); }
@@ -96,18 +105,25 @@
   button.buy.afford .cost{ color:var(--gold-dim); }
 
   .locked-card{
-    padding:16px; border:1px dashed var(--line); border-radius:4px;
-    color:var(--cream-faint); font-size:13px; text-align:center; margin-top:8px;
+    padding:28px 20px; border:1px dashed var(--line); border-radius:4px;
+    color:var(--cream-faint); font-size:13px; text-align:center; margin-top:8px; line-height:1.6;
   }
-  .locked-card b{ color:var(--cream-dim); font-weight:normal; }
+  .locked-card::before{
+    content:'—'; display:block; font-family:var(--serif); font-size:18px;
+    color:var(--gold-dim); opacity:0.6; margin-bottom:10px;
+  }
+  .locked-card b{ color:var(--gold); font-weight:normal; }
 
-  .stock-row{ padding:12px 0; border-bottom:1px solid var(--line-soft); }
+  .stock-row{ padding:13px 0; border-bottom:1px solid var(--line-soft); }
   .stock-top{ display:flex; justify-content:space-between; align-items:baseline; }
   .stock-name{ font-size:15px; }
-  .stock-price{ font-variant-numeric: tabular-nums; font-size:15px; }
-  .stock-change{ font-size:12px; margin-top:2px; font-variant-numeric: tabular-nums; }
+  .stock-price{ font-variant-numeric: tabular-nums; font-size:15px; font-family:var(--serif); }
+  .stock-change{ font-size:12px; margin-top:3px; font-variant-numeric: tabular-nums; display:flex; align-items:center; gap:4px; }
   .stock-change.up{ color:var(--green); }
   .stock-change.down{ color:var(--red); }
+  .stock-change::before{ content:''; width:0; height:0; border-left:3px solid transparent; border-right:3px solid transparent; }
+  .stock-change.up::before{ border-bottom:5px solid var(--green); }
+  .stock-change.down::before{ border-top:5px solid var(--red); }
   .stock-holding{ font-size:12px; color:var(--cream-faint); margin-top:4px; }
   .stock-controls{ display:flex; gap:8px; margin-top:8px; }
   .stock-controls button{
@@ -127,14 +143,14 @@
     display:flex; align-items:center; gap:11px; padding:11px 0; border-bottom:1px solid var(--line-soft);
     position:relative;
   }
-  .lb-row.you{ background: linear-gradient(90deg, rgba(201,162,83,0.10), transparent); margin:0 -16px; padding:11px 16px; border-radius:2px; }
+  .lb-row.you{ background: linear-gradient(90deg, rgba(201,162,83,0.10), transparent); margin:0 -16px; padding:11px 16px 11px 13px; border-left:3px solid var(--gold-dim); }
   .lb-rank{ font-family:var(--serif); font-size:13px; color:var(--cream-faint); width:24px; flex-shrink:0; text-align:right; }
   .lb-rank.you{ color:var(--gold); }
   .lb-dot{ width:6px; height:6px; border-radius:50%; flex-shrink:0; }
   .lb-info{ flex:1; min-width:0; }
   .lb-name{ font-size:14px; color:var(--cream); display:flex; align-items:center; gap:6px; }
   .lb-name.you{ color:var(--gold); }
-  .lb-badge{ font-size:9.5px; padding:1px 6px; border-radius:8px; border:1px solid var(--line); color:var(--cream-faint); flex-shrink:0; }
+  .lb-badge{ font-size:9px; letter-spacing:0.03em; padding:2px 7px; border-radius:8px; border:1px solid var(--line); color:var(--cream-faint); flex-shrink:0; }
   .lb-title{ font-size:11px; color:var(--cream-faint); margin-top:1px; }
   .lb-worth{ font-size:13px; font-variant-numeric: tabular-nums; color:var(--cream-dim); flex-shrink:0; }
   .lb-worth.you{ color:var(--gold); }
@@ -154,6 +170,7 @@
   .tabbar{
     position:fixed; bottom:0; left:0; right:0; z-index:20;
     background:var(--bg); border-top:1px solid var(--line);
+    box-shadow: 0 -8px 16px -8px rgba(0,0,0,0.35);
     display:flex; padding-bottom: env(safe-area-inset-bottom, 0);
   }
   .tab{
@@ -192,13 +209,14 @@
   }
   .modal-box{
     background:var(--bg-raised); border:1px solid var(--line); border-radius:6px;
-    padding:20px; max-width:320px; width:100%; text-align:center;
+    padding:22px 20px; max-width:320px; width:100%; text-align:center;
+    box-shadow: 0 12px 32px rgba(0,0,0,0.45);
   }
-  .modal-box h3{ font-family:var(--serif); font-weight:normal; font-size:17px; margin:0 0 8px; color:var(--gold); }
-  .modal-box p{ font-size:13px; color:var(--cream-dim); line-height:1.5; margin:0 0 16px; }
+  .modal-box h3{ font-family:var(--serif); font-weight:normal; font-size:17px; margin:0 0 10px; color:var(--gold); }
+  .modal-box p{ font-size:13px; color:var(--cream-dim); line-height:1.6; margin:0 0 18px; }
   .modal-box button{
     background:transparent; border:1px solid var(--gold-dim); color:var(--gold);
-    padding:9px 20px; border-radius:3px; font-size:13px; font-family:var(--sans);
+    padding:9px 20px; border-radius:2px 8px 2px 8px; font-size:13px; font-family:var(--sans);
   }
 </style>
 </head>
@@ -661,7 +679,7 @@ function renderBusiness(){
     const cost = bizCost(d, owned);
     const afford = state.cash >= cost;
     const row = document.createElement('div');
-    row.className = 'row';
+    row.className = 'row' + (owned>0?' owned':'');
     row.innerHTML = `
       <div class="row-info">
         <div class="row-name">${d.name}</div>
@@ -689,7 +707,7 @@ function renderBusiness(){
     const cost = staffCost(d, owned);
     const afford = state.cash >= cost;
     const row = document.createElement('div');
-    row.className = 'row';
+    row.className = 'row' + (owned>0?' owned':'');
     row.innerHTML = `
       <div class="row-info">
         <div class="row-name">${d.name}</div>
