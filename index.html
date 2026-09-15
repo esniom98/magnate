@@ -372,6 +372,9 @@ const EVENTS = [
 
 let state = null;
 const SAVE_KEY = 'magnate-save-v1';
+const PASSWORD_KEY = 'magnate-password-v1';
+const REMOTE_TOKEN_KEY = 'magnate-remote-token-v1';
+const KV_API = 'https://key-value.co/api';
 
 function defaultState(){
   return {
@@ -387,36 +390,118 @@ function defaultState(){
   };
 }
 
-function loadState(){
+function stateLooksEmpty(s){
+  // Stato "vuoto e rotto": nessun contante, nessuna attività, nessuna azione,
+  // nessuna proprietà. Non è una partita reale a zero (impossibile da
+  // raggiungere giocando, dato che business/staff/stock non si possono
+  // rivendere): è quasi certamente un salvataggio corrotto o inesistente.
+  return !(
+    (s.cash||0) > 0.5 ||
+    Object.values(s.business||{}).some(v=>v>0) ||
+    Object.values(s.staff||{}).some(v=>v>0) ||
+    Object.values(s.stocks||{}).some(v=>v>0) ||
+    Object.values(s.properties||{}).some(Boolean)
+  );
+}
+
+function normalizeLoadedState(loaded){
+  const s = Object.assign(defaultState(), loaded);
+  s.business = loaded.business || {};
+  s.staff = loaded.staff || {};
+  s.stocks = loaded.stocks || {};
+  s.properties = loaded.properties || {};
+  s.stats = Object.assign(defaultState().stats, loaded.stats||{});
+  return s;
+}
+
+/* La "parola" scelta dalla persona identifica il suo salvataggio remoto.
+   Da quella parola deriviamo sempre lo stesso token key-value.co: stessa
+   parola, stesso salvataggio, ovunque venga inserita (anche su un altro
+   dispositivo o in incognito). Non chiamiamo /api/generate: costruiamo
+   noi un identificatore stabile, così non serve ricordare un token
+   diverso dalla parola stessa. */
+async function passwordToToken(password){
+  const enc = new TextEncoder().encode('magnate-salt-v1:'+password.trim().toLowerCase());
+  const hashBuffer = await crypto.subtle.digest('SHA-256', enc);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+
+let remoteToken = null;
+let remoteAvailable = true;
+
+async function remoteStore(){
+  if(!remoteToken || !remoteAvailable) return;
+  try{
+    await fetch(KV_API+'/store', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-KV-Token': remoteToken },
+      body: JSON.stringify({ data: state })
+    });
+  }catch(e){ /* offline or unreachable: local cache still has the data */ }
+}
+
+async function remoteRetrieve(){
+  if(!remoteToken) return null;
+  try{
+    const res = await fetch(KV_API+'/retrieve', {
+      headers: { 'X-KV-Token': remoteToken }
+    });
+    if(res.status===404){ return null; } // token valid, no save yet
+    if(!res.ok){ remoteAvailable=false; return null; }
+    const json = await res.json();
+    return json && json.data ? json.data : null;
+  }catch(e){
+    remoteAvailable = false;
+    return null;
+  }
+}
+
+function getLocalPassword(){
+  try{ return localStorage.getItem(PASSWORD_KEY); }catch(e){ return null; }
+}
+function setLocalPassword(pw){
+  try{ localStorage.setItem(PASSWORD_KEY, pw); }catch(e){}
+}
+
+function askForPassword(promptText){
+  let pw = null;
+  while(!pw || !pw.trim()){
+    pw = window.prompt(promptText);
+    if(pw===null) pw = 'ospite-'+Math.floor(Math.random()*100000); // niente annulla infinito
+  }
+  return pw.trim();
+}
+
+async function loadState(){
+  // 1) prova la cache locale del browser (istantanea)
+  let localState = null;
   try{
     const raw = localStorage.getItem(SAVE_KEY);
-    if(raw){
-      const loaded = JSON.parse(raw);
-      state = Object.assign(defaultState(), loaded);
-      state.business = loaded.business || {};
-      state.staff = loaded.staff || {};
-      state.stocks = loaded.stocks || {};
-      state.properties = loaded.properties || {};
-      state.stats = Object.assign(defaultState().stats, loaded.stats||{});
+    if(raw) localState = normalizeLoadedState(JSON.parse(raw));
+  }catch(e){ /* localStorage indisponibile: procediamo comunque col remoto */ }
 
-      // Stato "vuoto e rotto": nessun contante, nessuna attività, nessuna azione,
-      // nessuna proprietà. Non è una partita reale a zero (impossibile da
-      // raggiungere giocando, dato che business/staff/stock non si possono
-      // rivendere): è quasi certamente un salvataggio corrotto da un test
-      // precedente. Ripartiamo puliti invece di intrappolare la persona a €0.
-      const hasAnyAsset =
-        (state.cash||0) > 0.5 ||
-        Object.values(state.business).some(v=>v>0) ||
-        Object.values(state.staff).some(v=>v>0) ||
-        Object.values(state.stocks).some(v=>v>0) ||
-        Object.values(state.properties).some(Boolean);
-      if(!hasAnyAsset){
-        state = defaultState();
-      }
-    } else {
-      state = defaultState();
-    }
+  // 2) prepara il token remoto dalla parola scelta (salvata o richiesta ora)
+  let password = getLocalPassword();
+  if(!password){
+    password = askForPassword('Scegli una parola per il tuo salvataggio (ti servirà per ritrovarlo su un altro browser o in incognito):');
+    setLocalPassword(password);
+  }
+  try{
+    remoteToken = await passwordToToken(password);
   }catch(e){
+    remoteToken = null; // crypto.subtle non disponibile (contesto non sicuro): niente remoto
+  }
+
+  // 3) prova a leggere il salvataggio remoto associato a quella parola
+  const remoteState = remoteToken ? await remoteRetrieve() : null;
+
+  if(remoteState && !stateLooksEmpty(remoteState)){
+    state = normalizeLoadedState(remoteState);
+  } else if(localState && !stateLooksEmpty(localState)){
+    state = localState;
+    remoteStore(); // sincronizza subito il remoto con quello che avevamo in locale
+  } else {
     state = defaultState();
   }
 }
@@ -426,6 +511,7 @@ function saveState(){
   // dal sistema in qualsiasi momento, senza dare tempo a un timer in attesa
   // di completarsi. Ogni azione scrive subito, per non perdere mai progresso.
   try{ localStorage.setItem(SAVE_KEY, JSON.stringify(state)); }catch(e){}
+  remoteStore(); // best-effort: non blocca il gioco se la rete è lenta o assente
 }
 
 /* ===================== ECONOMY CALCULATIONS ===================== */
@@ -841,6 +927,7 @@ function confirmReset(){
 function doReset(){
   state = defaultState();
   try{ localStorage.setItem(SAVE_KEY, JSON.stringify(state)); }catch(e){}
+  remoteStore();
   document.querySelector('.modal-overlay').remove();
   switchTab('business');
 }
@@ -878,6 +965,7 @@ function offlineCatchup(){
 function safePersist(){
   try{ localStorage.setItem(SAVE_KEY, JSON.stringify(state)); }
   catch(e){ /* silent, best effort */ }
+  remoteStore();
 }
 
 function showFatalError(err){
@@ -891,9 +979,9 @@ function showFatalError(err){
     '</div>';
 }
 
-function init(){
+async function init(){
   try{
-    loadState();
+    await loadState();
     offlineCatchup();
     renderAll();
     setInterval(tick, 1000);
@@ -911,11 +999,9 @@ function init(){
     showFatalError(err);
   }
 }
-try{
-  init();
-}catch(err){
+init().catch(err=>{
   showFatalError(err);
-}
+});
 </script>
 </body>
 </html>
