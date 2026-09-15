@@ -24,6 +24,12 @@
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color: transparent;}
   html,body{margin:0; padding:0; background:var(--bg); color:var(--cream); font-family:var(--sans); overscroll-behavior-y: none;}
+  body{
+    background-image:
+      radial-gradient(ellipse 900px 500px at 50% -10%, rgba(201,162,83,0.05), transparent),
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.025'/%3E%3C/svg%3E");
+    background-attachment: fixed;
+  }
   body{padding-bottom:72px; min-height:100vh;}
   ::-webkit-scrollbar{display:none;}
 
@@ -36,6 +42,7 @@
     font-family:var(--serif); font-size:14px; letter-spacing:0.03em; color:var(--gold-dim);
     display:flex; justify-content:space-between; align-items:baseline;
   }
+  .title-mark{ font-size:11px; opacity:0.7; }
   .cash-row{ display:flex; justify-content:space-between; align-items:baseline; margin-top:8px; }
   .cash-label{ font-size:10.5px; color:var(--cream-faint); letter-spacing:0.02em; }
   .cash-value{ font-family:var(--serif); font-size:30px; color:var(--cream); font-variant-numeric: tabular-nums; line-height:1.1; }
@@ -54,7 +61,8 @@
   .progress-track{ height:3px; background:var(--line-soft); border-radius:2px; margin-top:6px; overflow:hidden; }
   .progress-fill{ height:100%; background:var(--gold-dim); border-radius:2px; transition: width 0.4s ease; }
 
-  .screen{ display:none; padding:14px 16px 24px; }
+  .screen{ display:none; padding:14px 16px 24px; animation: fadeIn 0.25s ease; }
+  @keyframes fadeIn{ from{ opacity:0; transform:translateY(4px); } to{ opacity:1; transform:translateY(0); } }
   .screen.active{ display:block; }
 
   .section-head{
@@ -67,8 +75,9 @@
   .row{
     display:flex; justify-content:space-between; align-items:center;
     padding:12px 0; border-bottom:1px solid var(--line-soft);
-    gap:10px;
+    gap:10px; transition: background-color 0.15s ease;
   }
+  .row:active{ background: rgba(201,162,83,0.04); }
   .row:last-child{ border-bottom:none; }
   .row-info{ flex:1; min-width:0; }
   .row-name{ font-size:15px; color:var(--cream); }
@@ -152,7 +161,7 @@
     color:var(--cream-faint); font-family:var(--sans); font-size:10px;
     position:relative; letter-spacing:0.01em;
   }
-  .tab .tab-icon{ font-family:var(--serif); font-size:16px; display:block; margin-bottom:4px; color:inherit; }
+  .tab .tab-icon{ width:19px; height:19px; display:block; margin:0 auto 4px; color:inherit; }
   .tab.active{ color:var(--gold); }
   .tab.active::before{
     content:''; position:absolute; top:0; left:50%; transform:translateX(-50%);
@@ -164,6 +173,13 @@
   .stat-line{ display:flex; justify-content:space-between; padding:9px 0; border-bottom:1px solid var(--line-soft); font-size:13px; }
   .stat-line span:first-child{ color:var(--cream-faint); }
   .stat-line span:last-child{ font-variant-numeric: tabular-nums; }
+
+  .password-box{
+    padding:14px; border:1px dashed var(--line); border-radius:4px;
+    font-size:13px; color:var(--cream-dim); text-align:center;
+  }
+  .password-box .pw-word{ font-family:var(--serif); font-size:17px; color:var(--gold); letter-spacing:0.02em; margin-bottom:6px; }
+  .password-box .pw-hint{ font-size:11px; color:var(--cream-faint); line-height:1.5; }
 
   .you-banner{
     text-align:center; padding: 10px 0 4px; font-size:12px; color:var(--cream-faint);
@@ -190,7 +206,7 @@
 
 <div class="topbar">
   <div class="topbar-title">
-    <span id="header-title">magnate</span>
+    <span id="header-title"><span class="title-mark">✦</span> magnate</span>
     <span id="header-day">giorno 1</span>
   </div>
   <div class="cash-row">
@@ -249,6 +265,8 @@
 <div class="screen" id="screen-stats">
   <div class="section-head"><span>il tuo registro</span></div>
   <div id="stats-list"></div>
+  <div class="section-head" style="margin-top:20px"><span>salvataggio online</span></div>
+  <div id="password-display" class="password-box"></div>
   <div style="margin-top:24px; text-align:center;">
     <button class="buy" style="border-color:#5a3634; color:var(--red);" onclick="confirmReset()">azzera partita</button>
   </div>
@@ -256,19 +274,19 @@
 
 <div class="tabbar">
   <button class="tab active" data-screen="business" onclick="switchTab('business')">
-    <span class="tab-icon">A</span>attività
+    <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 21V9l8-5 8 5v12M4 21h16M9 21v-6h6v6" stroke-linecap="round" stroke-linejoin="round"/></svg>attività
   </button>
   <button class="tab" data-screen="market" onclick="switchTab('market')">
-    <span class="tab-icon">B</span>borsa
+    <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 17l5-5 4 4 8-9M15 7h5v5" stroke-linecap="round" stroke-linejoin="round"/></svg>borsa
   </button>
   <button class="tab" data-screen="property" onclick="switchTab('property')">
-    <span class="tab-icon">I</span>immobili
+    <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 21V11l8-7 8 7v10M9 21v-7h6v7" stroke-linecap="round" stroke-linejoin="round"/></svg>immobili
   </button>
   <button class="tab" data-screen="rank" onclick="switchTab('rank')">
-    <span class="tab-icon">C</span>classifica
+    <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 21V13M2 21V9M14 21V16M20 21V11M2 9l6-4 6 5 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>classifica
   </button>
   <button class="tab" data-screen="stats" onclick="switchTab('stats')">
-    <span class="tab-icon">R</span>registro
+    <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 3h9l5 5v13H6z M15 3v5h5 M9 12h6 M9 16h6" stroke-linecap="round" stroke-linejoin="round"/></svg>registro
   </button>
 </div>
 
@@ -338,16 +356,27 @@ const PROPERTY_DEFS = [
    I nomi sono inventati; le fasce di grandezza rispecchiano quella piramide reale. */
 const RIVALS = [
   { name:'Bruno Salvetti', title:'commerciante storico', start:600, rate:0.011, seed:11 },
+  { name:'Franca Odelli', title:'proprietaria di panetteria', start:1100, rate:0.012, seed:17 },
   { name:'Ines Cardarelli', title:'ex bancaria', start:1800, rate:0.013, seed:23 },
+  { name:'Nico Barlassina', title:'artigiano del legno', start:3200, rate:0.014, seed:31 },
   { name:'Marco Fontanesi', title:'imprenditore edile', start:5200, rate:0.014, seed:37 },
+  { name:'Ombretta Sansone', title:'catena di lavanderie', start:8800, rate:0.015, seed:39 },
   { name:'Lucia Petrangeli', title:'fondatrice di startup', start:14000, rate:0.016, seed:41 },
+  { name:'Dario Melchiorre', title:'concessionario auto', start:23000, rate:0.014, seed:47 },
   { name:'Giorgio Malaspina', title:'agente immobiliare', start:38000, rate:0.015, seed:53 },
+  { name:'Serena Bortolussi', title:'gruppo ristorativo', start:62000, rate:0.016, seed:59 },
   { name:'Wanda Cortesi', title:'investitrice privata', start:95000, rate:0.017, seed:67 },
+  { name:'Alceo Pignatelli', title:'importatore di caffè', start:160000, rate:0.014, seed:69 },
   { name:'Renzo Albiero', title:'erede di famiglia', start:260000, rate:0.013, seed:71 },
+  { name:'Bianca Terragni', title:'catena di farmacie', start:410000, rate:0.017, seed:79 },
   { name:'Silvana Roghi', title:'gestore di fondi', start:650000, rate:0.018, seed:83 },
+  { name:'Ferruccio Sabatini', title:'costruttore navale', start:1000000, rate:0.014, seed:89 },
   { name:'Corrado Vismara', title:'magnate del retail', start:1600000, rate:0.015, seed:97 },
+  { name:'Ariella Cusin', title:'holding agroalimentare', start:2600000, rate:0.016, seed:99 },
   { name:'Elda Ferretti', title:'dinastia industriale', start:4200000, rate:0.013, seed:101 },
+  { name:'Osvaldo Manfrin', title:'gruppo assicurativo', start:6800000, rate:0.017, seed:107 },
   { name:'Tommaso Brandolini', title:'venture capitalist', start:11000000, rate:0.019, seed:113 },
+  { name:'Palmira Segantini', title:'catena alberghiera', start:18000000, rate:0.015, seed:119 },
   { name:'Ada Solimano', title:'holding di famiglia', start:28000000, rate:0.014, seed:127 },
   { name:'Piero Guarneschi', title:'ultimo miliardario entrato in lista', start:1000000000, rate:0.010, seed:139 },
   { name:'Delia Astengo', title:'catena di supermercati', start:5800000000, rate:0.011, seed:149 },
@@ -466,9 +495,18 @@ function setLocalPassword(pw){
 
 function askForPassword(promptText){
   let pw = null;
+  let attempts = 0;
   while(!pw || !pw.trim()){
     pw = window.prompt(promptText);
-    if(pw===null) pw = 'ospite-'+Math.floor(Math.random()*100000); // niente annulla infinito
+    attempts++;
+    if(pw===null && attempts>=3){
+      // il browser sta bloccando i prompt (comune in incognito su alcuni
+      // browser mobile) o la persona continua ad annullare: non possiamo
+      // continuare a chiedere all'infinito, ma non inventiamo un'identità
+      // casuale che spezzerebbe il salvataggio in modo silenzioso.
+      showEventToast('impossibile leggere la parola di salvataggio: i popup potrebbero essere bloccati su questo browser.');
+      return null;
+    }
   }
   return pw.trim();
 }
@@ -485,12 +523,16 @@ async function loadState(){
   let password = getLocalPassword();
   if(!password){
     password = askForPassword('Scegli una parola per il tuo salvataggio (ti servirà per ritrovarlo su un altro browser o in incognito):');
-    setLocalPassword(password);
+    if(password) setLocalPassword(password);
   }
-  try{
-    remoteToken = await passwordToToken(password);
-  }catch(e){
-    remoteToken = null; // crypto.subtle non disponibile (contesto non sicuro): niente remoto
+  if(password){
+    try{
+      remoteToken = await passwordToToken(password);
+    }catch(e){
+      remoteToken = null; // crypto.subtle non disponibile (contesto non sicuro): niente remoto
+    }
+  } else {
+    remoteToken = null; // popup bloccati o annullati: si gioca solo in locale
   }
 
   // 3) prova a leggere il salvataggio remoto associato a quella parola
@@ -879,6 +921,17 @@ function renderStats(){
     <div class="stat-line"><span>personale assunto</span><span>${staffOwned}</span></div>
     <div class="stat-line"><span>proprietà immobiliari</span><span>${propOwned}</span></div>
   `;
+
+  const pwBox = document.getElementById('password-display');
+  const currentPw = getLocalPassword();
+  if(currentPw){
+    pwBox.innerHTML = `
+      <div class="pw-word">${currentPw}</div>
+      <div class="pw-hint">questa è la parola che collega il salvataggio online. scrivila da qualche parte: serve per ritrovare la partita in incognito o su un altro dispositivo.</div>
+    `;
+  } else {
+    pwBox.innerHTML = `<div class="pw-hint">salvataggio online non attivo in questa sessione (solo locale).</div>`;
+  }
 }
 
 function renderAll(){
