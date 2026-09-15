@@ -265,8 +265,10 @@
 <div class="screen" id="screen-stats">
   <div class="section-head"><span>il tuo registro</span></div>
   <div id="stats-list"></div>
-  <div class="section-head" style="margin-top:20px"><span>salvataggio online</span></div>
-  <div id="password-display" class="password-box"></div>
+  <div class="section-head" style="margin-top:20px"><span>salvataggio</span></div>
+  <div class="password-box">
+    <div class="pw-hint">il progresso si salva sia su questo browser sia online: puoi ritrovarlo riaprendo il gioco da qualsiasi browser o dispositivo, incognito incluso.</div>
+  </div>
   <div style="margin-top:24px; text-align:center;">
     <button class="buy" style="border-color:#5a3634; color:var(--red);" onclick="confirmReset()">azzera partita</button>
   </div>
@@ -400,11 +402,10 @@ const EVENTS = [
 /* ===================== STATE ===================== */
 
 let state = null;
-let pendingNewGameWarning = false;
 const SAVE_KEY = 'magnate-save-v1';
-const PASSWORD_KEY = 'magnate-password-v1';
-const REMOTE_TOKEN_KEY = 'magnate-remote-token-v1';
-const KV_API = 'https://key-value.co/api';
+const JSONBIN_ID = '6aa92b92ac6210605acfe10e';
+const JSONBIN_KEY = '$2a$10$TE98qegu/kbMgbWgvUMtJungTPgKqj2sb/GLgge4HsFxRQHP/ejYa';
+const JSONBIN_URL = 'https://api.jsonbin.io/v3/b/'+JSONBIN_ID;
 
 function defaultState(){
   return {
@@ -421,10 +422,6 @@ function defaultState(){
 }
 
 function stateLooksEmpty(s){
-  // Stato "vuoto e rotto": nessun contante, nessuna attività, nessuna azione,
-  // nessuna proprietà. Non è una partita reale a zero (impossibile da
-  // raggiungere giocando, dato che business/staff/stock non si possono
-  // rivendere): è quasi certamente un salvataggio corrotto o inesistente.
   return !(
     (s.cash||0) > 0.5 ||
     Object.values(s.business||{}).some(v=>v>0) ||
@@ -444,134 +441,68 @@ function normalizeLoadedState(loaded){
   return s;
 }
 
-/* La "parola" scelta dalla persona identifica il suo salvataggio remoto.
-   Da quella parola deriviamo sempre lo stesso token key-value.co: stessa
-   parola, stesso salvataggio, ovunque venga inserita (anche su un altro
-   dispositivo o in incognito). Non chiamiamo /api/generate: costruiamo
-   noi un identificatore stabile, così non serve ricordare un token
-   diverso dalla parola stessa. */
-async function passwordToToken(password){
-  const enc = new TextEncoder().encode('magnate-salt-v1:'+password.trim().toLowerCase());
-  const hashBuffer = await crypto.subtle.digest('SHA-256', enc);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map(b=>b.toString(16).padStart(2,'0')).join('');
-}
-
-let remoteToken = null;
-let remoteAvailable = true;
-
-let remoteErrorShown = false;
-function reportRemoteError(context, err){
-  remoteAvailable = false;
-  if(!remoteErrorShown){
-    remoteErrorShown = true;
+let cloudAvailable = true;
+let cloudErrorShown = false;
+function reportCloudError(context, err){
+  cloudAvailable = false;
+  if(!cloudErrorShown){
+    cloudErrorShown = true;
     const detail = (err && err.message) ? err.message : String(err);
     showEventToast('salvataggio online non raggiungibile ('+context+'): '+detail+'. Il gioco continua a salvare solo in locale su questo browser.');
   }
 }
 
-async function remoteStore(){
-  if(!remoteToken || !remoteAvailable) return;
+async function cloudRetrieve(){
   try{
-    const res = await fetch(KV_API+'/store', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-KV-Token': remoteToken },
-      body: JSON.stringify({ data: state })
+    const res = await fetch(JSONBIN_URL+'/latest', {
+      headers: { 'X-Master-Key': JSONBIN_KEY }
     });
     if(!res.ok){
-      reportRemoteError('salvataggio, codice '+res.status, null);
-    }
-  }catch(e){
-    reportRemoteError('salvataggio', e);
-  }
-}
-
-async function remoteRetrieve(){
-  if(!remoteToken) return null;
-  try{
-    const res = await fetch(KV_API+'/retrieve', {
-      headers: { 'X-KV-Token': remoteToken }
-    });
-    if(res.status===404){ return null; } // token valido, nessun salvataggio ancora presente
-    if(!res.ok){
-      reportRemoteError('lettura, codice '+res.status, null);
+      reportCloudError('lettura, codice '+res.status);
       return null;
     }
     const json = await res.json();
-    return json && json.data ? json.data : null;
+    return json && json.record ? json.record : null;
   }catch(e){
-    reportRemoteError('lettura', e);
+    reportCloudError('lettura', e);
     return null;
   }
 }
 
-function getLocalPassword(){
-  try{ return localStorage.getItem(PASSWORD_KEY); }catch(e){ return null; }
-}
-function setLocalPassword(pw){
-  try{ localStorage.setItem(PASSWORD_KEY, pw); }catch(e){}
-}
-
-function askForPassword(promptText){
-  let pw = null;
-  let attempts = 0;
-  while(!pw || !pw.trim()){
-    pw = window.prompt(promptText);
-    attempts++;
-    if(pw===null && attempts>=3){
-      // il browser sta bloccando i prompt (comune in incognito su alcuni
-      // browser mobile) o la persona continua ad annullare: non possiamo
-      // continuare a chiedere all'infinito, ma non inventiamo un'identità
-      // casuale che spezzerebbe il salvataggio in modo silenzioso.
-      showEventToast('impossibile leggere la parola di salvataggio: i popup potrebbero essere bloccati su questo browser.');
-      return null;
+async function cloudStore(){
+  if(!cloudAvailable) return;
+  try{
+    const res = await fetch(JSONBIN_URL, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'X-Master-Key': JSONBIN_KEY },
+      body: JSON.stringify(state)
+    });
+    if(!res.ok){
+      reportCloudError('salvataggio, codice '+res.status);
     }
+  }catch(e){
+    reportCloudError('salvataggio', e);
   }
-  return pw.trim();
 }
 
 async function loadState(){
-  // 1) prova la cache locale del browser (istantanea)
+  // 1) cache locale, istantanea, usata come base e come rete di sicurezza
   let localState = null;
   try{
     const raw = localStorage.getItem(SAVE_KEY);
     if(raw) localState = normalizeLoadedState(JSON.parse(raw));
-  }catch(e){ /* localStorage indisponibile: procediamo comunque col remoto */ }
+  }catch(e){ /* localStorage indisponibile: si procede comunque col cloud */ }
 
-  // 2) prepara il token remoto dalla parola scelta (salvata o richiesta ora)
-  let password = getLocalPassword();
-  if(!password){
-    password = askForPassword('Scegli una parola per il tuo salvataggio (ti servirà per ritrovarlo su un altro browser o in incognito):');
-    if(password) setLocalPassword(password);
-  }
-  if(password){
-    try{
-      remoteToken = await passwordToToken(password);
-    }catch(e){
-      remoteToken = null; // crypto.subtle non disponibile (contesto non sicuro): niente remoto
-    }
-  } else {
-    remoteToken = null; // popup bloccati o annullati: si gioca solo in locale
-  }
+  // 2) prova il salvataggio online, condiviso su questo unico bin jsonbin
+  const cloudState = await cloudRetrieve();
 
-  // 3) prova a leggere il salvataggio remoto associato a quella parola
-  const remoteState = remoteToken ? await remoteRetrieve() : null;
-
-  if(remoteState && !stateLooksEmpty(remoteState)){
-    state = normalizeLoadedState(remoteState);
+  if(cloudState && !stateLooksEmpty(cloudState)){
+    state = normalizeLoadedState(cloudState);
   } else if(localState && !stateLooksEmpty(localState)){
     state = localState;
-    remoteStore(); // sincronizza subito il remoto con quello che avevamo in locale
+    cloudStore(); // sincronizza il cloud con quello che avevamo solo in locale
   } else {
     state = defaultState();
-    // Mostriamo l'avviso di "partita nuova" solo se la lettura remota è
-    // riuscita per davvero (nessun errore di rete/CORS) e semplicemente
-    // non ha trovato nulla: in quel caso è una parola nuova o sbagliata.
-    // Se invece remoteAvailable è già false, reportRemoteError ha già
-    // mostrato il messaggio più preciso: non sovrapponiamo un secondo avviso.
-    if(remoteToken && remoteAvailable){
-      pendingNewGameWarning = true;
-    }
   }
 }
 
@@ -580,7 +511,7 @@ function saveState(){
   // dal sistema in qualsiasi momento, senza dare tempo a un timer in attesa
   // di completarsi. Ogni azione scrive subito, per non perdere mai progresso.
   try{ localStorage.setItem(SAVE_KEY, JSON.stringify(state)); }catch(e){}
-  remoteStore(); // best-effort: non blocca il gioco se la rete è lenta o assente
+  cloudStore();
 }
 
 /* ===================== ECONOMY CALCULATIONS ===================== */
@@ -948,17 +879,6 @@ function renderStats(){
     <div class="stat-line"><span>personale assunto</span><span>${staffOwned}</span></div>
     <div class="stat-line"><span>proprietà immobiliari</span><span>${propOwned}</span></div>
   `;
-
-  const pwBox = document.getElementById('password-display');
-  const currentPw = getLocalPassword();
-  if(currentPw){
-    pwBox.innerHTML = `
-      <div class="pw-word">${currentPw}</div>
-      <div class="pw-hint">questa è la parola che collega il salvataggio online. scrivila da qualche parte: serve per ritrovare la partita in incognito o su un altro dispositivo.</div>
-    `;
-  } else {
-    pwBox.innerHTML = `<div class="pw-hint">salvataggio online non attivo in questa sessione (solo locale).</div>`;
-  }
 }
 
 function renderAll(){
@@ -1007,7 +927,7 @@ function confirmReset(){
 function doReset(){
   state = defaultState();
   try{ localStorage.setItem(SAVE_KEY, JSON.stringify(state)); }catch(e){}
-  remoteStore();
+  cloudStore();
   document.querySelector('.modal-overlay').remove();
   switchTab('business');
 }
@@ -1045,7 +965,7 @@ function offlineCatchup(){
 function safePersist(){
   try{ localStorage.setItem(SAVE_KEY, JSON.stringify(state)); }
   catch(e){ /* silent, best effort */ }
-  remoteStore();
+  cloudStore();
 }
 
 function showFatalError(err){
@@ -1064,12 +984,6 @@ async function init(){
     await loadState();
     offlineCatchup();
     renderAll();
-    if(pendingNewGameWarning){
-      setTimeout(()=>{
-        showEventToast('nessun salvataggio trovato con questa parola: è una partita nuova. Se pensavi di ritrovarne una esistente, controlla di aver scritto la parola esattamente come la prima volta.');
-      }, 600);
-      pendingNewGameWarning = false;
-    }
     setInterval(tick, 1000);
     setInterval(safePersist, 3000);
     document.addEventListener('visibilitychange', ()=>{
