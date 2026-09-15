@@ -1,0 +1,921 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Magnate — il registro</title>
+<style>
+  :root{
+    --bg: #1C1B1A;
+    --bg-raised: #242220;
+    --bg-row: #201F1D;
+    --cream: #F5F0E8;
+    --cream-dim: #B8B2A6;
+    --cream-faint: #7A756A;
+    --green: #5C8570;
+    --green-dim: #3D5A4C;
+    --red: #B0524F;
+    --gold: #C9A253;
+    --gold-dim: #8A7038;
+    --line: #34322E;
+    --line-soft: #2A2826;
+    --serif: Georgia, 'Iowan Old Style', 'Palatino Linotype', Palatino, serif;
+    --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color: transparent;}
+  html,body{margin:0; padding:0; background:var(--bg); color:var(--cream); font-family:var(--sans); overscroll-behavior-y: none;}
+  body{padding-bottom:72px; min-height:100vh;}
+  ::-webkit-scrollbar{display:none;}
+
+  .topbar{
+    position:sticky; top:0; z-index:10;
+    background:var(--bg);
+    padding:15px 16px 0;
+  }
+  .topbar-title{
+    font-family:var(--serif); font-size:14px; letter-spacing:0.03em; color:var(--gold-dim);
+    display:flex; justify-content:space-between; align-items:baseline;
+  }
+  .cash-row{ display:flex; justify-content:space-between; align-items:baseline; margin-top:8px; }
+  .cash-label{ font-size:10.5px; color:var(--cream-faint); letter-spacing:0.02em; }
+  .cash-value{ font-family:var(--serif); font-size:30px; color:var(--cream); font-variant-numeric: tabular-nums; line-height:1.1; }
+  .cash-rate{ font-size:12px; color:var(--green); font-variant-numeric: tabular-nums; }
+  .cash-rate.neg{ color:var(--red); }
+  .topbar-rule{
+    height:1px; margin-top:12px;
+    background: linear-gradient(90deg, transparent, var(--gold-dim) 50%, transparent);
+    opacity:0.5;
+  }
+  .next-rival-bar{
+    margin-top:10px; padding-top:8px; border-top:1px solid var(--line-soft);
+    font-size:10.5px; color:var(--cream-faint); display:flex; justify-content:space-between;
+  }
+  .next-rival-bar b{ color:var(--cream-dim); font-weight:normal; }
+  .progress-track{ height:3px; background:var(--line-soft); border-radius:2px; margin-top:6px; overflow:hidden; }
+  .progress-fill{ height:100%; background:var(--gold-dim); border-radius:2px; transition: width 0.4s ease; }
+
+  .screen{ display:none; padding:14px 16px 24px; }
+  .screen.active{ display:block; }
+
+  .section-head{
+    font-size:11px; text-transform:none; color:var(--cream-faint);
+    margin: 18px 0 8px; padding-bottom:6px; border-bottom:1px solid var(--line-soft);
+    display:flex; justify-content:space-between; align-items:baseline;
+  }
+  .section-head:first-child{ margin-top:0; }
+
+  .row{
+    display:flex; justify-content:space-between; align-items:center;
+    padding:12px 0; border-bottom:1px solid var(--line-soft);
+    gap:10px;
+  }
+  .row:last-child{ border-bottom:none; }
+  .row-info{ flex:1; min-width:0; }
+  .row-name{ font-size:15px; color:var(--cream); }
+  .row-sub{ font-size:12px; color:var(--cream-faint); margin-top:2px; font-variant-numeric: tabular-nums; }
+  .row-action{ flex-shrink:0; }
+
+  button.buy{
+    background:transparent; border:1px solid var(--line);
+    color:var(--cream); font-family:var(--sans); font-size:13px;
+    padding:8px 14px; border-radius:3px; min-width:84px; text-align:center;
+  }
+  button.buy:active{ background:var(--bg-row); }
+  button.buy.afford{ border-color:var(--gold-dim); color:var(--gold); }
+  button.buy:disabled{ opacity:0.35; }
+  button.buy .cost{ display:block; font-size:11px; color:var(--cream-faint); margin-top:2px; }
+  button.buy.afford .cost{ color:var(--gold-dim); }
+
+  .locked-card{
+    padding:16px; border:1px dashed var(--line); border-radius:4px;
+    color:var(--cream-faint); font-size:13px; text-align:center; margin-top:8px;
+  }
+  .locked-card b{ color:var(--cream-dim); font-weight:normal; }
+
+  .stock-row{ padding:12px 0; border-bottom:1px solid var(--line-soft); }
+  .stock-top{ display:flex; justify-content:space-between; align-items:baseline; }
+  .stock-name{ font-size:15px; }
+  .stock-price{ font-variant-numeric: tabular-nums; font-size:15px; }
+  .stock-change{ font-size:12px; margin-top:2px; font-variant-numeric: tabular-nums; }
+  .stock-change.up{ color:var(--green); }
+  .stock-change.down{ color:var(--red); }
+  .stock-holding{ font-size:12px; color:var(--cream-faint); margin-top:4px; }
+  .stock-controls{ display:flex; gap:8px; margin-top:8px; }
+  .stock-controls button{
+    flex:1; background:transparent; border:1px solid var(--line); color:var(--cream);
+    font-size:12px; padding:7px 0; border-radius:3px;
+  }
+  .stock-controls button:active{ background:var(--bg-row); }
+  .stock-controls button.sell{ color: var(--red); border-color: #5a3634; }
+
+  .property-card{ padding:14px 0; border-bottom:1px solid var(--line-soft); }
+  .property-top{ display:flex; justify-content:space-between; align-items:baseline; }
+  .property-name{ font-size:15px; }
+  .property-income{ font-size:12px; color:var(--green); font-variant-numeric: tabular-nums; }
+  .property-desc{ font-size:12px; color:var(--cream-faint); margin-top:3px; }
+
+  .lb-row{
+    display:flex; align-items:center; gap:11px; padding:11px 0; border-bottom:1px solid var(--line-soft);
+    position:relative;
+  }
+  .lb-row.you{ background: linear-gradient(90deg, rgba(201,162,83,0.10), transparent); margin:0 -16px; padding:11px 16px; border-radius:2px; }
+  .lb-rank{ font-family:var(--serif); font-size:13px; color:var(--cream-faint); width:24px; flex-shrink:0; text-align:right; }
+  .lb-rank.you{ color:var(--gold); }
+  .lb-dot{ width:6px; height:6px; border-radius:50%; flex-shrink:0; }
+  .lb-info{ flex:1; min-width:0; }
+  .lb-name{ font-size:14px; color:var(--cream); display:flex; align-items:center; gap:6px; }
+  .lb-name.you{ color:var(--gold); }
+  .lb-badge{ font-size:9.5px; padding:1px 6px; border-radius:8px; border:1px solid var(--line); color:var(--cream-faint); flex-shrink:0; }
+  .lb-title{ font-size:11px; color:var(--cream-faint); margin-top:1px; }
+  .lb-worth{ font-size:13px; font-variant-numeric: tabular-nums; color:var(--cream-dim); flex-shrink:0; }
+  .lb-worth.you{ color:var(--gold); }
+  .lb-gap{ font-size:10px; color:var(--cream-faint); margin-top:2px; }
+
+  .event-toast{
+    position:fixed; left:16px; right:16px; bottom:80px; z-index:30;
+    background:var(--bg-raised); border:1px solid var(--line); border-left:3px solid var(--gold-dim);
+    padding:12px 14px; border-radius:3px;
+    font-size:13px; color:var(--cream-dim);
+    transform:translateY(20px); opacity:0; transition: transform 0.3s ease, opacity 0.3s ease;
+    pointer-events:none;
+  }
+  .event-toast.show{ transform:translateY(0); opacity:1; }
+  .event-toast .ev-title{ color:var(--cream); font-size:13px; margin-bottom:2px; }
+
+  .tabbar{
+    position:fixed; bottom:0; left:0; right:0; z-index:20;
+    background:var(--bg); border-top:1px solid var(--line);
+    display:flex; padding-bottom: env(safe-area-inset-bottom, 0);
+  }
+  .tab{
+    flex:1; text-align:center; padding:11px 0 9px; background:none; border:none;
+    color:var(--cream-faint); font-family:var(--sans); font-size:10px;
+    position:relative; letter-spacing:0.01em;
+  }
+  .tab .tab-icon{ font-family:var(--serif); font-size:16px; display:block; margin-bottom:4px; color:inherit; }
+  .tab.active{ color:var(--gold); }
+  .tab.active::before{
+    content:''; position:absolute; top:0; left:50%; transform:translateX(-50%);
+    width:24px; height:2px; background:var(--gold);
+  }
+
+  .empty-note{ font-size:12px; color:var(--cream-faint); padding:14px 0; text-align:center; }
+
+  .stat-line{ display:flex; justify-content:space-between; padding:9px 0; border-bottom:1px solid var(--line-soft); font-size:13px; }
+  .stat-line span:first-child{ color:var(--cream-faint); }
+  .stat-line span:last-child{ font-variant-numeric: tabular-nums; }
+
+  .you-banner{
+    text-align:center; padding: 10px 0 4px; font-size:12px; color:var(--cream-faint);
+  }
+  .you-banner b{ color:var(--gold); font-weight:normal; }
+
+  .modal-overlay{
+    position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:40;
+    display:flex; align-items:center; justify-content:center; padding:24px;
+  }
+  .modal-box{
+    background:var(--bg-raised); border:1px solid var(--line); border-radius:6px;
+    padding:20px; max-width:320px; width:100%; text-align:center;
+  }
+  .modal-box h3{ font-family:var(--serif); font-weight:normal; font-size:17px; margin:0 0 8px; color:var(--gold); }
+  .modal-box p{ font-size:13px; color:var(--cream-dim); line-height:1.5; margin:0 0 16px; }
+  .modal-box button{
+    background:transparent; border:1px solid var(--gold-dim); color:var(--gold);
+    padding:9px 20px; border-radius:3px; font-size:13px; font-family:var(--sans);
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-title">
+    <span id="header-title">magnate</span>
+    <span id="header-day">giorno 1</span>
+  </div>
+  <div class="cash-row">
+    <div>
+      <div class="cash-label">patrimonio netto</div>
+      <div class="cash-value" id="cash-display">€0</div>
+    </div>
+    <div style="text-align:right">
+      <div class="cash-label">al secondo</div>
+      <div class="cash-rate" id="rate-display">+€0</div>
+    </div>
+  </div>
+  <div class="next-rival-bar">
+    <span id="next-rival-label">prossimo in classifica</span>
+    <span id="next-rival-gap"></span>
+  </div>
+  <div class="progress-track"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
+  <div class="topbar-rule"></div>
+</div>
+
+<div class="screen active" id="screen-business">
+  <div class="you-banner">sei <b>attivo da poco</b> — costruisci la prima attività</div>
+
+  <div class="section-head"><span>la tua attività</span><span id="biz-income">€0/s</span></div>
+  <div id="biz-list"></div>
+
+  <div class="section-head"><span>personale</span></div>
+  <div id="staff-list"></div>
+</div>
+
+<div class="screen" id="screen-market">
+  <div id="market-locked" class="locked-card">
+    la borsa si sblocca a <b>€5.000</b> di patrimonio
+  </div>
+  <div id="market-content" style="display:none">
+    <div class="section-head"><span>listino</span><span id="market-cash">liquidità €0</span></div>
+    <div id="stock-list"></div>
+  </div>
+</div>
+
+<div class="screen" id="screen-property">
+  <div id="property-locked" class="locked-card">
+    gli immobili si sbloccano a <b>€50.000</b> di patrimonio
+  </div>
+  <div id="property-content" style="display:none">
+    <div class="section-head"><span>proprietà</span><span id="property-income">€0/s rendita</span></div>
+    <div id="property-list"></div>
+  </div>
+</div>
+
+<div class="screen" id="screen-rank">
+  <div class="section-head"><span>i più ricchi</span><span id="rank-you-pos"></span></div>
+  <div id="rank-list"></div>
+</div>
+
+<div class="screen" id="screen-stats">
+  <div class="section-head"><span>il tuo registro</span></div>
+  <div id="stats-list"></div>
+  <div style="margin-top:24px; text-align:center;">
+    <button class="buy" style="border-color:#5a3634; color:var(--red);" onclick="confirmReset()">azzera partita</button>
+  </div>
+</div>
+
+<div class="tabbar">
+  <button class="tab active" data-screen="business" onclick="switchTab('business')">
+    <span class="tab-icon">A</span>attività
+  </button>
+  <button class="tab" data-screen="market" onclick="switchTab('market')">
+    <span class="tab-icon">B</span>borsa
+  </button>
+  <button class="tab" data-screen="property" onclick="switchTab('property')">
+    <span class="tab-icon">I</span>immobili
+  </button>
+  <button class="tab" data-screen="rank" onclick="switchTab('rank')">
+    <span class="tab-icon">C</span>classifica
+  </button>
+  <button class="tab" data-screen="stats" onclick="switchTab('stats')">
+    <span class="tab-icon">R</span>registro
+  </button>
+</div>
+
+<div id="event-toast" class="event-toast"></div>
+
+<script>
+/* ===================== UTILITIES ===================== */
+function fmt(n){
+  if(n===null||n===undefined||isNaN(n)) return '€0';
+  const neg = n<0; n = Math.abs(n);
+  let s;
+  if(n>=1e12) s = (n/1e12).toFixed(2)+'T';
+  else if(n>=1e9) s = (n/1e9).toFixed(2)+'Mld';
+  else if(n>=1e6) s = (n/1e6).toFixed(2)+'M';
+  else if(n>=1e3) s = (n/1e3).toFixed(1)+'k';
+  else s = n.toFixed(n<10?2:0);
+  return (neg?'-':'')+'€'+s;
+}
+function fmtRate(n){
+  const sign = n>=0 ? '+' : '-';
+  return sign + fmt(Math.abs(n)) + '/s';
+}
+function nowSec(){ return Date.now()/1000; }
+function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
+function seededRandom(seed){
+  let s = seed % 2147483647; if(s<=0) s += 2147483646;
+  return function(){ s = s*16807 % 2147483647; return (s-1)/2147483646; };
+}
+
+/* ===================== GAME DEFINITION ===================== */
+
+const BIZ_DEFS = [
+  { id:'bancarella', name:'bancarella', baseCost:25,  baseIncome:0.18, costMult:1.155 },
+  { id:'negozio',    name:'negozio di quartiere', baseCost:400, baseIncome:2.2, costMult:1.165, unlockCash:200 },
+  { id:'officina',   name:'officina meccanica', baseCost:4500, baseIncome:16, costMult:1.175, unlockCash:2500 },
+  { id:'agenzia',    name:'agenzia di servizi', baseCost:45000, baseIncome:95, costMult:1.185, unlockCash:24000 },
+  { id:'fabbrica',   name:'piccola fabbrica', baseCost:380000, baseIncome:520, costMult:1.195, unlockCash:200000 },
+  { id:'catena',     name:'catena di negozi', baseCost:3200000, baseIncome:2800, costMult:1.205, unlockCash:1700000 },
+];
+
+const STAFF_DEFS = [
+  { id:'apprendista', name:'apprendista', baseCost:220, mult:1.05, costMult:1.26, unlockCash:25 },
+  { id:'gestore', name:'gestore di turno', baseCost:3200, mult:1.09, costMult:1.28, unlockCash:2200 },
+  { id:'direttore', name:'direttore operativo', baseCost:52000, mult:1.14, costMult:1.30, unlockCash:34000 },
+  { id:'consulente', name:'consulente strategico', baseCost:700000, mult:1.22, costMult:1.32, unlockCash:450000 },
+];
+
+const STOCK_DEFS = [
+  { id:'FERR', name:'Ferrotech Industriale', base:24, vol:0.018, drift:0.00006 },
+  { id:'AQUA', name:'Aquamarina Utilities', base:11, vol:0.010, drift:0.00004 },
+  { id:'NOVA', name:'Nova Biotecnologie', base:60, vol:0.035, drift:0.00009 },
+  { id:'PORT', name:'Portolano Spedizioni', base:33, vol:0.020, drift:0.00005 },
+  { id:'AURE', name:'Aurelia Finanziaria', base:88, vol:0.014, drift:0.00007 },
+];
+
+const PROPERTY_DEFS = [
+  { id:'bilocale', name:'bilocale in periferia', cost:120000, income:14, unlockCash:120000 },
+  { id:'trilocale', name:'trilocale centrale', cost:420000, income:52, unlockCash:350000 },
+  { id:'negoziosfitto', name:'locale commerciale', cost:1100000, income:135, unlockCash:900000 },
+  { id:'palazzina', name:'piccola palazzina', cost:3800000, income:430, unlockCash:3200000 },
+  { id:'uffici', name:'edificio per uffici', cost:16000000, income:1750, unlockCash:13000000 },
+];
+
+/* Fasce di partenza ispirate a dati reali (Forbes World's Billionaires 2026):
+   soglia d'ingresso lista Forbes ~1 miliardo, patrimonio medio ~5.8 miliardi,
+   club dei 100 miliardi ~20 persone, il più ricco al mondo oltre gli 800 miliardi.
+   I nomi sono inventati; le fasce di grandezza rispecchiano quella piramide reale. */
+const RIVALS = [
+  { name:'Bruno Salvetti', title:'commerciante storico', start:600, rate:0.011, seed:11 },
+  { name:'Ines Cardarelli', title:'ex bancaria', start:1800, rate:0.013, seed:23 },
+  { name:'Marco Fontanesi', title:'imprenditore edile', start:5200, rate:0.014, seed:37 },
+  { name:'Lucia Petrangeli', title:'fondatrice di startup', start:14000, rate:0.016, seed:41 },
+  { name:'Giorgio Malaspina', title:'agente immobiliare', start:38000, rate:0.015, seed:53 },
+  { name:'Wanda Cortesi', title:'investitrice privata', start:95000, rate:0.017, seed:67 },
+  { name:'Renzo Albiero', title:'erede di famiglia', start:260000, rate:0.013, seed:71 },
+  { name:'Silvana Roghi', title:'gestore di fondi', start:650000, rate:0.018, seed:83 },
+  { name:'Corrado Vismara', title:'magnate del retail', start:1600000, rate:0.015, seed:97 },
+  { name:'Elda Ferretti', title:'dinastia industriale', start:4200000, rate:0.013, seed:101 },
+  { name:'Tommaso Brandolini', title:'venture capitalist', start:11000000, rate:0.019, seed:113 },
+  { name:'Ada Solimano', title:'holding di famiglia', start:28000000, rate:0.014, seed:127 },
+  { name:'Piero Guarneschi', title:'ultimo miliardario entrato in lista', start:1000000000, rate:0.010, seed:139 },
+  { name:'Delia Astengo', title:'catena di supermercati', start:5800000000, rate:0.011, seed:149 },
+  { name:'Vittorio Camerana', title:'compagnia di navigazione', start:14000000000, rate:0.012, seed:157 },
+  { name:'Miranda Zappalà', title:'gruppo bancario', start:28000000000, rate:0.010, seed:163 },
+  { name:'Ettore Brindisi', title:'farmaceutica di famiglia', start:45000000000, rate:0.013, seed:173 },
+  { name:'Costanza Ripamonti', title:'gruppo moda e lusso', start:80000000000, rate:0.011, seed:179 },
+  { name:'Sandro Malvezzi', title:'colosso energetico', start:130000000000, rate:0.014, seed:191 },
+  { name:'Nadia Colonnese', title:'impero tecnologico', start:220000000000, rate:0.012, seed:199 },
+  { name:'Guido Falchetti', title:'il più ricco del pianeta', start:480000000000, rate:0.009, seed:211 },
+];
+
+const EVENTS = [
+  { text:'La domanda locale è salita: piccolo aumento degli incassi.', mult:1.06, dur:40 },
+  { text:'Un fornitore ha aumentato i prezzi: incassi leggermente giù.', mult:0.94, dur:40 },
+  { text:'Articolo positivo sul giornale locale.', mult:1.08, dur:35 },
+  { text:'Giornata fiacca, poco movimento.', mult:0.95, dur:30 },
+  { text:'Un cliente importante ha rinnovato il contratto.', mult:1.07, dur:45 },
+];
+
+/* ===================== STATE ===================== */
+
+let state = null;
+const SAVE_KEY = 'magnate-save-v1';
+
+function defaultState(){
+  return {
+    cash: 30,
+    startedAt: Date.now(),
+    lastTick: Date.now(),
+    business: {},   // id -> count
+    staff: {},      // id -> count
+    stocks: {},     // id -> shares held
+    properties: {}, // id -> owned bool
+    stats: { totalEarned: 30, peakCash: 30, marketUnlockedAt:null, propertyUnlockedAt:null },
+    marketSeed: Math.floor(Math.random()*1000000),
+  };
+}
+
+function loadState(){
+  try{
+    const raw = localStorage.getItem(SAVE_KEY);
+    if(raw){
+      const loaded = JSON.parse(raw);
+      state = Object.assign(defaultState(), loaded);
+      state.business = loaded.business || {};
+      state.staff = loaded.staff || {};
+      state.stocks = loaded.stocks || {};
+      state.properties = loaded.properties || {};
+      state.stats = Object.assign(defaultState().stats, loaded.stats||{});
+
+      // Stato "vuoto e rotto": nessun contante, nessuna attività, nessuna azione,
+      // nessuna proprietà. Non è una partita reale a zero (impossibile da
+      // raggiungere giocando, dato che business/staff/stock non si possono
+      // rivendere): è quasi certamente un salvataggio corrotto da un test
+      // precedente. Ripartiamo puliti invece di intrappolare la persona a €0.
+      const hasAnyAsset =
+        (state.cash||0) > 0.5 ||
+        Object.values(state.business).some(v=>v>0) ||
+        Object.values(state.staff).some(v=>v>0) ||
+        Object.values(state.stocks).some(v=>v>0) ||
+        Object.values(state.properties).some(Boolean);
+      if(!hasAnyAsset){
+        state = defaultState();
+      }
+    } else {
+      state = defaultState();
+    }
+  }catch(e){
+    state = defaultState();
+  }
+}
+
+function saveState(){
+  // Salvataggio immediato, non ritardato: su mobile l'app può essere chiusa
+  // dal sistema in qualsiasi momento, senza dare tempo a un timer in attesa
+  // di completarsi. Ogni azione scrive subito, per non perdere mai progresso.
+  try{ localStorage.setItem(SAVE_KEY, JSON.stringify(state)); }catch(e){}
+}
+
+/* ===================== ECONOMY CALCULATIONS ===================== */
+
+function bizCost(def, owned){
+  return def.baseCost * Math.pow(def.costMult, owned);
+}
+function staffCost(def, owned){
+  return def.baseCost * Math.pow(def.costMult, owned);
+}
+function staffMultiplier(){
+  let m = 1;
+  STAFF_DEFS.forEach(d=>{
+    const owned = state.staff[d.id]||0;
+    if(owned>0) m *= Math.pow(d.mult, owned);
+  });
+  return m;
+}
+let eventMultiplier = 1;
+let eventExpiry = 0;
+
+function businessIncomePerSec(){
+  let total = 0;
+  BIZ_DEFS.forEach(d=>{
+    const owned = state.business[d.id]||0;
+    total += owned * d.baseIncome;
+  });
+  total *= staffMultiplier();
+  if(nowSec() < eventExpiry) total *= eventMultiplier;
+  return total;
+}
+
+function propertyIncomePerSec(){
+  let total = 0;
+  PROPERTY_DEFS.forEach(d=>{
+    if(state.properties[d.id]) total += d.income;
+  });
+  return total;
+}
+
+function stockPrice(def, tSec){
+  // deterministic-ish smooth price path: slow drift + bounded noise via layered sines + seeded jitter
+  const rnd = seededRandom(def.base*1000 + state.marketSeed);
+  let jitter = 0;
+  for(let i=0;i<3;i++) jitter += (rnd()-0.5);
+  const wave = Math.sin(tSec*0.0007 + def.base) * 0.15 + Math.sin(tSec*0.00021 + def.base*2) * 0.25;
+  const driftComponent = def.drift * tSec;
+  const noiseComponent = Math.sin(tSec*0.0031 + def.base*3.1) * def.vol * 3;
+  let price = def.base * (1 + wave + driftComponent + noiseComponent*0.3);
+  return Math.max(0.5, price);
+}
+
+function totalNetWorth(){
+  let w = state.cash;
+  STOCK_DEFS.forEach(d=>{
+    const shares = state.stocks[d.id]||0;
+    if(shares>0) w += shares * stockPrice(d, nowSec());
+  });
+  PROPERTY_DEFS.forEach(d=>{
+    if(state.properties[d.id]) w += d.cost * 0.7; // properties count at 70% liquidation value
+  });
+  return w;
+}
+
+function totalIncomePerSec(){
+  return businessIncomePerSec() + propertyIncomePerSec();
+}
+
+/* rival net worth: smooth compound growth with mild proportional damping,
+   tuned so climbing the full ladder genuinely takes months, not days */
+function rivalWorth(rival, elapsedDays){
+  const wobble = 1 + Math.sin(elapsedDays*0.7 + rival.seed) * 0.025;
+  const growthDays = Math.max(0, elapsedDays);
+  // damping factor shrinks the effective daily rate over time (proportional, not absolute)
+  const dampedRate = rival.rate / (1 + growthDays*0.006);
+  const avgRate = (rival.rate + dampedRate) / 2;
+  const worth = rival.start * Math.pow(1 + avgRate, growthDays);
+  return worth * wobble;
+}
+
+/* ===================== RENDER ===================== */
+
+let currentTab = 'business';
+
+function switchTab(tab){
+  currentTab = tab;
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('screen-'+tab).classList.add('active');
+  document.querySelector('.tab[data-screen="'+tab+'"]').classList.add('active');
+  renderAll();
+}
+
+function biggestUnownedNoun(){
+  const netWorth = totalNetWorth();
+  if(netWorth < 200) return 'attivo da poco';
+  if(netWorth < 5000) return 'la tua attività prende forma';
+  if(netWorth < 50000) return 'un piccolo capitale';
+  if(netWorth < 500000) return 'un patrimonio che si fa notare';
+  if(netWorth < 5000000) return 'imprenditore affermato';
+  if(netWorth < 1e9) return 'il tuo nome inizia a girare';
+  if(netWorth < 10e9) return 'sei entrato nel club dei miliardari';
+  if(netWorth < 100e9) return 'un impero in espansione';
+  return 'contendi il vertice mondiale';
+}
+
+function renderTop(){
+  const netWorth = totalNetWorth();
+  document.getElementById('cash-display').textContent = fmt(netWorth);
+  const rate = totalIncomePerSec();
+  const rateEl = document.getElementById('rate-display');
+  rateEl.textContent = fmtRate(rate);
+  rateEl.className = 'cash-rate' + (rate<0?' neg':'');
+  const days = Math.floor((Date.now()-state.startedAt)/86400000)+1;
+  document.getElementById('header-day').textContent = 'giorno '+days;
+
+  const elapsedDays = (Date.now()-state.startedAt)/86400000;
+  const ahead = RIVALS.map(r=>rivalWorth(r, elapsedDays)).filter(w=>w>netWorth).sort((a,b)=>a-b);
+  const labelEl = document.getElementById('next-rival-label');
+  const gapEl = document.getElementById('next-rival-gap');
+  const fillEl = document.getElementById('progress-fill');
+  if(ahead.length===0){
+    labelEl.textContent = 'sei il più ricco della classifica';
+    gapEl.textContent = '';
+    fillEl.style.width = '100%';
+  } else {
+    const target = ahead[0];
+    const prevTarget = ahead.length < RIVALS.length ? Math.max(0, ...RIVALS.map(r=>rivalWorth(r, elapsedDays)).filter(w=>w<=netWorth)) : 0;
+    const span = Math.max(1, target - prevTarget);
+    const pct = clamp(((netWorth - prevTarget) / span) * 100, 2, 100);
+    labelEl.textContent = 'prossimo obiettivo';
+    gapEl.textContent = 'mancano '+fmt(target-netWorth);
+    fillEl.style.width = pct+'%';
+  }
+}
+
+function renderBusiness(){
+  const bizList = document.getElementById('biz-list');
+  bizList.innerHTML = '';
+  const netWorth = totalNetWorth();
+  let anyVisible = false;
+  BIZ_DEFS.forEach(d=>{
+    const owned = state.business[d.id]||0;
+    const unlockAt = d.unlockCash||0;
+    if(owned===0 && netWorth < unlockAt*0.6) return;
+    anyVisible = true;
+    const cost = bizCost(d, owned);
+    const afford = state.cash >= cost;
+    const row = document.createElement('div');
+    row.className = 'row';
+    row.innerHTML = `
+      <div class="row-info">
+        <div class="row-name">${d.name}</div>
+        <div class="row-sub">${owned} in gestione · €${d.baseIncome.toFixed(owned&&d.baseIncome<1?2:1)}/s ciascuna</div>
+      </div>
+      <div class="row-action">
+        <button class="buy ${afford?'afford':''}" ${afford?'':'disabled'} onclick="buyBusiness('${d.id}')">
+          acquista<span class="cost">${fmt(cost)}</span>
+        </button>
+      </div>`;
+    bizList.appendChild(row);
+  });
+  if(!anyVisible){
+    bizList.innerHTML = '<div class="empty-note">nessuna attività disponibile ancora</div>';
+  }
+  document.getElementById('biz-income').textContent = fmt(businessIncomePerSec())+'/s';
+
+  const staffList = document.getElementById('staff-list');
+  staffList.innerHTML = '';
+  let anyStaff = false;
+  STAFF_DEFS.forEach(d=>{
+    const owned = state.staff[d.id]||0;
+    if(owned===0 && netWorth < d.unlockCash*0.6) return;
+    anyStaff = true;
+    const cost = staffCost(d, owned);
+    const afford = state.cash >= cost;
+    const row = document.createElement('div');
+    row.className = 'row';
+    row.innerHTML = `
+      <div class="row-info">
+        <div class="row-name">${d.name}</div>
+        <div class="row-sub">${owned} assunti · +${Math.round((d.mult-1)*100)}% resa ciascuno</div>
+      </div>
+      <div class="row-action">
+        <button class="buy ${afford?'afford':''}" ${afford?'':'disabled'} onclick="buyStaff('${d.id}')">
+          assumi<span class="cost">${fmt(cost)}</span>
+        </button>
+      </div>`;
+    staffList.appendChild(row);
+  });
+  if(!anyStaff){
+    staffList.innerHTML = '<div class="empty-note">assumi personale quando avrai un’attività</div>';
+  }
+}
+
+function buyBusiness(id){
+  const def = BIZ_DEFS.find(d=>d.id===id);
+  const owned = state.business[id]||0;
+  const cost = bizCost(def, owned);
+  if(state.cash >= cost){
+    state.cash -= cost;
+    state.business[id] = owned+1;
+    saveState();
+    renderAll();
+  }
+}
+function buyStaff(id){
+  const def = STAFF_DEFS.find(d=>d.id===id);
+  const owned = state.staff[id]||0;
+  const cost = staffCost(def, owned);
+  if(state.cash >= cost){
+    state.cash -= cost;
+    state.staff[id] = owned+1;
+    saveState();
+    renderAll();
+  }
+}
+
+function renderMarket(){
+  const netWorth = totalNetWorth();
+  const unlocked = netWorth >= 5000 || Object.values(state.stocks).some(v=>v>0);
+  document.getElementById('market-locked').style.display = unlocked?'none':'block';
+  document.getElementById('market-content').style.display = unlocked?'block':'none';
+  if(!unlocked) return;
+
+  document.getElementById('market-cash').textContent = 'liquidità '+fmt(state.cash);
+  const list = document.getElementById('stock-list');
+  list.innerHTML = '';
+  const t = nowSec();
+  STOCK_DEFS.forEach(d=>{
+    const price = stockPrice(d, t);
+    const prevPrice = stockPrice(d, t-300);
+    const changePct = ((price-prevPrice)/prevPrice)*100;
+    const shares = state.stocks[d.id]||0;
+    const row = document.createElement('div');
+    row.className = 'stock-row';
+    row.innerHTML = `
+      <div class="stock-top">
+        <span class="stock-name">${d.name}</span>
+        <span class="stock-price">${fmt(price)}</span>
+      </div>
+      <div class="stock-change ${changePct>=0?'up':'down'}">${changePct>=0?'+':''}${changePct.toFixed(2)}% ultimi 5 min</div>
+      <div class="stock-holding">${shares>0 ? shares+' azioni · '+fmt(shares*price)+' di valore' : 'nessuna posizione'}</div>
+      <div class="stock-controls">
+        <button onclick="tradeStock('${d.id}', 1)">compra 1 · ${fmt(price)}</button>
+        <button onclick="tradeStock('${d.id}', 10)">compra 10 · ${fmt(price*10)}</button>
+        ${shares>0?`<button class="sell" onclick="tradeStock('${d.id}', -shares)">vendi tutto</button>`:''}
+      </div>`;
+    list.appendChild(row);
+  });
+}
+
+function tradeStock(id, qty){
+  const def = STOCK_DEFS.find(d=>d.id===id);
+  const price = stockPrice(def, nowSec());
+  const owned = state.stocks[id]||0;
+  if(qty>0){
+    const cost = price*qty;
+    if(state.cash>=cost){
+      state.cash -= cost;
+      state.stocks[id] = owned+qty;
+    }
+  } else {
+    const sellQty = Math.min(owned, -qty);
+    state.cash += price*sellQty;
+    state.stocks[id] = owned - sellQty;
+  }
+  saveState();
+  renderAll();
+}
+
+function renderProperty(){
+  const netWorth = totalNetWorth();
+  const unlocked = netWorth >= 50000 || Object.values(state.properties).some(v=>v);
+  document.getElementById('property-locked').style.display = unlocked?'none':'block';
+  document.getElementById('property-content').style.display = unlocked?'block':'none';
+  if(!unlocked) return;
+
+  document.getElementById('property-income').textContent = fmt(propertyIncomePerSec())+'/s rendita';
+  const list = document.getElementById('property-list');
+  list.innerHTML = '';
+  PROPERTY_DEFS.forEach(d=>{
+    const owned = !!state.properties[d.id];
+    if(!owned && netWorth < d.unlockCash*0.6) return;
+    const afford = state.cash >= d.cost;
+    const card = document.createElement('div');
+    card.className = 'property-card';
+    card.innerHTML = `
+      <div class="property-top">
+        <span class="property-name">${d.name}</span>
+        <span class="property-income">${owned?'+'+fmt(d.income)+'/s':fmt(d.cost)}</span>
+      </div>
+      <div class="property-desc">${owned?'rendita passiva costante':'rendita '+fmt(d.income)+'/s dopo l’acquisto'}</div>
+      ${owned?'':`<div style="margin-top:8px"><button class="buy ${afford?'afford':''}" ${afford?'':'disabled'} style="width:100%" onclick="buyProperty('${d.id}')">acquista</button></div>`}
+    `;
+    list.appendChild(card);
+  });
+}
+
+function buyProperty(id){
+  const def = PROPERTY_DEFS.find(d=>d.id===id);
+  if(state.cash >= def.cost && !state.properties[id]){
+    state.cash -= def.cost;
+    state.properties[id] = true;
+    saveState();
+    renderAll();
+  }
+}
+
+function tierBadge(worth){
+  if(worth >= 100e9) return {label:'top 20 mondiale', dot:'var(--gold)'};
+  if(worth >= 1e9) return {label:'miliardario', dot:'var(--gold-dim)'};
+  if(worth >= 1e6) return {label:'milionario', dot:'var(--green)'};
+  return null;
+}
+
+function renderRank(){
+  const netWorth = totalNetWorth();
+  const elapsedDays = (Date.now()-state.startedAt)/86400000;
+  const entries = RIVALS.map(r=>({ name:r.name, title:r.title, worth: rivalWorth(r, elapsedDays), isYou:false }));
+  entries.push({ name:'tu', title: biggestUnownedNoun(), worth: netWorth, isYou:true });
+  entries.sort((a,b)=>b.worth-a.worth);
+
+  const list = document.getElementById('rank-list');
+  list.innerHTML = '';
+  entries.forEach((e,i)=>{
+    const row = document.createElement('div');
+    row.className = 'lb-row' + (e.isYou?' you':'');
+    const badge = tierBadge(e.worth);
+    const gapText = e.isYou ? '' :
+      (e.worth > netWorth
+        ? `<div class="lb-gap">+${fmt(e.worth-netWorth)} avanti a te</div>`
+        : `<div class="lb-gap">${fmt(netWorth-e.worth)} dietro a te</div>`);
+    row.innerHTML = `
+      <div class="lb-rank ${e.isYou?'you':''}">${i+1}</div>
+      <div class="lb-info">
+        <div class="lb-name ${e.isYou?'you':''}">${e.name}${badge?`<span class="lb-badge">${badge.label}</span>`:''}</div>
+        <div class="lb-title">${e.title}</div>
+        ${gapText}
+      </div>
+      <div class="lb-worth ${e.isYou?'you':''}">${fmt(e.worth)}</div>
+    `;
+    list.appendChild(row);
+  });
+  const yourPos = entries.findIndex(e=>e.isYou)+1;
+  document.getElementById('rank-you-pos').textContent = 'sei '+yourPos+'° su '+entries.length;
+}
+
+function renderStats(){
+  const netWorth = totalNetWorth();
+  if(netWorth > state.stats.peakCash) state.stats.peakCash = netWorth;
+  const days = Math.max(1, Math.floor((Date.now()-state.startedAt)/86400000)+1);
+  const bizOwned = Object.values(state.business).reduce((a,b)=>a+b,0);
+  const staffOwned = Object.values(state.staff).reduce((a,b)=>a+b,0);
+  const propOwned = Object.values(state.properties).filter(Boolean).length;
+
+  const list = document.getElementById('stats-list');
+  list.innerHTML = `
+    <div class="stat-line"><span>giorni attivo</span><span>${days}</span></div>
+    <div class="stat-line"><span>patrimonio netto</span><span>${fmt(netWorth)}</span></div>
+    <div class="stat-line"><span>liquidità</span><span>${fmt(state.cash)}</span></div>
+    <div class="stat-line"><span>massimo raggiunto</span><span>${fmt(state.stats.peakCash)}</span></div>
+    <div class="stat-line"><span>entrate al secondo</span><span>${fmt(totalIncomePerSec())}/s</span></div>
+    <div class="stat-line"><span>attività possedute</span><span>${bizOwned}</span></div>
+    <div class="stat-line"><span>personale assunto</span><span>${staffOwned}</span></div>
+    <div class="stat-line"><span>proprietà immobiliari</span><span>${propOwned}</span></div>
+  `;
+}
+
+function renderAll(){
+  renderTop();
+  if(currentTab==='business') renderBusiness();
+  if(currentTab==='market') renderMarket();
+  if(currentTab==='property') renderProperty();
+  if(currentTab==='rank') renderRank();
+  if(currentTab==='stats') renderStats();
+}
+
+/* ===================== EVENTS ===================== */
+function maybeTriggerEvent(){
+  if(nowSec() < eventExpiry) return;
+  if(Math.random() < 0.006){ // roughly every few minutes of active play
+    const ev = EVENTS[Math.floor(Math.random()*EVENTS.length)];
+    eventMultiplier = ev.mult;
+    eventExpiry = nowSec() + ev.dur;
+    showEventToast(ev.text);
+  }
+}
+let toastTimer = null;
+function showEventToast(text){
+  const el = document.getElementById('event-toast');
+  el.innerHTML = '<div class="ev-title">nota dal registro</div>'+text;
+  el.classList.add('show');
+  if(toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>{ el.classList.remove('show'); }, 4200);
+}
+
+/* ===================== RESET ===================== */
+function confirmReset(){
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `
+    <div class="modal-box">
+      <h3>azzerare la partita?</h3>
+      <p>tutto il progresso, il patrimonio e le proprietà andranno persi. non si può annullare.</p>
+      <div style="display:flex; gap:10px; justify-content:center;">
+        <button onclick="this.closest('.modal-overlay').remove()">annulla</button>
+        <button style="border-color:#5a3634; color:var(--red)" onclick="doReset()">azzera</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+}
+function doReset(){
+  state = defaultState();
+  try{ localStorage.setItem(SAVE_KEY, JSON.stringify(state)); }catch(e){}
+  document.querySelector('.modal-overlay').remove();
+  switchTab('business');
+}
+
+/* ===================== TICK LOOP ===================== */
+function tick(){
+  const now = Date.now();
+  const dt = Math.min(5, (now - state.lastTick)/1000); // cap catch-up per tick
+  state.lastTick = now;
+  const income = totalIncomePerSec();
+  state.cash += income*dt;
+  if(state.cash<0) state.cash=0;
+  state.stats.totalEarned += Math.max(0, income*dt);
+  maybeTriggerEvent();
+  renderAll();
+}
+
+function offlineCatchup(){
+  const now = Date.now();
+  const elapsedSec = (now - state.lastTick)/1000;
+  if(elapsedSec > 5){
+    // offline earnings at 50% efficiency, capped at 8 hours
+    const cappedSec = Math.min(elapsedSec, 8*3600);
+    const income = businessIncomePerSec() + propertyIncomePerSec();
+    const earned = income * cappedSec * 0.5;
+    if(earned > 1){
+      state.cash += earned;
+      showEventToast('mentre eri via hai incassato '+fmt(earned)+' (resa ridotta offline).');
+    }
+  }
+  state.lastTick = now;
+}
+
+/* ===================== INIT ===================== */
+function safePersist(){
+  try{ localStorage.setItem(SAVE_KEY, JSON.stringify(state)); }
+  catch(e){ /* silent, best effort */ }
+}
+
+function showFatalError(err){
+  document.body.innerHTML =
+    '<div style="padding:32px 20px; font-family:sans-serif; color:#F5F0E8; background:#1C1B1A; min-height:100vh;">'+
+    '<h2 style="font-weight:normal; font-size:17px;">il gioco non si è avviato correttamente</h2>'+
+    '<p style="font-size:13px; color:#B8B2A6; line-height:1.6;">Si è verificato un errore imprevisto durante il caricamento. '+
+    'Prova a ricaricare la pagina.</p>'+
+    '<p style="font-size:11px; color:#7A756A; margin-top:16px; word-break:break-word;">Dettaglio tecnico: '+
+    (err && err.message ? err.message : String(err))+'</p>'+
+    '</div>';
+}
+
+function init(){
+  try{
+    loadState();
+    offlineCatchup();
+    renderAll();
+    setInterval(tick, 1000);
+    setInterval(safePersist, 3000);
+    document.addEventListener('visibilitychange', ()=>{
+      if(document.visibilityState==='visible'){
+        offlineCatchup();
+        renderAll();
+      } else {
+        safePersist();
+      }
+    });
+    window.addEventListener('pagehide', safePersist);
+  }catch(err){
+    showFatalError(err);
+  }
+}
+try{
+  init();
+}catch(err){
+  showFatalError(err);
+}
+</script>
+</body>
+</html>
