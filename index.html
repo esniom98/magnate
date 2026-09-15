@@ -400,6 +400,7 @@ const EVENTS = [
 /* ===================== STATE ===================== */
 
 let state = null;
+let pendingNewGameWarning = false;
 const SAVE_KEY = 'magnate-save-v1';
 const PASSWORD_KEY = 'magnate-password-v1';
 const REMOTE_TOKEN_KEY = 'magnate-remote-token-v1';
@@ -459,15 +460,30 @@ async function passwordToToken(password){
 let remoteToken = null;
 let remoteAvailable = true;
 
+let remoteErrorShown = false;
+function reportRemoteError(context, err){
+  remoteAvailable = false;
+  if(!remoteErrorShown){
+    remoteErrorShown = true;
+    const detail = (err && err.message) ? err.message : String(err);
+    showEventToast('salvataggio online non raggiungibile ('+context+'): '+detail+'. Il gioco continua a salvare solo in locale su questo browser.');
+  }
+}
+
 async function remoteStore(){
   if(!remoteToken || !remoteAvailable) return;
   try{
-    await fetch(KV_API+'/store', {
+    const res = await fetch(KV_API+'/store', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-KV-Token': remoteToken },
       body: JSON.stringify({ data: state })
     });
-  }catch(e){ /* offline or unreachable: local cache still has the data */ }
+    if(!res.ok){
+      reportRemoteError('salvataggio, codice '+res.status, null);
+    }
+  }catch(e){
+    reportRemoteError('salvataggio', e);
+  }
 }
 
 async function remoteRetrieve(){
@@ -476,12 +492,15 @@ async function remoteRetrieve(){
     const res = await fetch(KV_API+'/retrieve', {
       headers: { 'X-KV-Token': remoteToken }
     });
-    if(res.status===404){ return null; } // token valid, no save yet
-    if(!res.ok){ remoteAvailable=false; return null; }
+    if(res.status===404){ return null; } // token valido, nessun salvataggio ancora presente
+    if(!res.ok){
+      reportRemoteError('lettura, codice '+res.status, null);
+      return null;
+    }
     const json = await res.json();
     return json && json.data ? json.data : null;
   }catch(e){
-    remoteAvailable = false;
+    reportRemoteError('lettura', e);
     return null;
   }
 }
@@ -545,6 +564,14 @@ async function loadState(){
     remoteStore(); // sincronizza subito il remoto con quello che avevamo in locale
   } else {
     state = defaultState();
+    // Mostriamo l'avviso di "partita nuova" solo se la lettura remota è
+    // riuscita per davvero (nessun errore di rete/CORS) e semplicemente
+    // non ha trovato nulla: in quel caso è una parola nuova o sbagliata.
+    // Se invece remoteAvailable è già false, reportRemoteError ha già
+    // mostrato il messaggio più preciso: non sovrapponiamo un secondo avviso.
+    if(remoteToken && remoteAvailable){
+      pendingNewGameWarning = true;
+    }
   }
 }
 
@@ -1037,6 +1064,12 @@ async function init(){
     await loadState();
     offlineCatchup();
     renderAll();
+    if(pendingNewGameWarning){
+      setTimeout(()=>{
+        showEventToast('nessun salvataggio trovato con questa parola: è una partita nuova. Se pensavi di ritrovarne una esistente, controlla di aver scritto la parola esattamente come la prima volta.');
+      }, 600);
+      pendingNewGameWarning = false;
+    }
     setInterval(tick, 1000);
     setInterval(safePersist, 3000);
     document.addEventListener('visibilitychange', ()=>{
